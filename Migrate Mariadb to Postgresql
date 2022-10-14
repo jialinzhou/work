@@ -1,0 +1,155 @@
+1.ora2pg install
+
+1.1 prereqisites
+
+1)安装依赖
+sudo yum install -y perl perl-ExtUtils-CBuilder perl-ExtUtils-MakeMaker
+
+2)手动下载并安装CPan依赖
+
+wget https://cpan.metacpan.org/authors/id/A/AN/ANDK/CPAN-1.9205.tar.gz
+
+tar -xvcf CPAN-1.9205.tar.gz
+
+cd CPAN-1.9205
+
+perl Makefile.PL
+make
+make install
+
+
+
+3)手动下载安装CPAN::Meta::Requirements
+
+wget https://cpan.metacpan.org/authors/id/D/DA/DAGOLDEN/CPAN-Meta-Requirements-2.140.tar.gz
+
+tar -xvzf CPAN-Meta-Requirements-2.140.tar.gz
+
+cd CPAN-Meta-Requirements-2.140/
+
+perl Makefile.PL
+make
+make install
+
+4）使用perl安装  install Devel::CheckLib
+
+5）yum -y install gcc+ gcc-c++
+
+6）安装mysql client
+
+wget https://downloads.mysql.com/archives/get/p/19/file/mysql-connector-c-6.1.11-linux-glibc2.12-x86_64.tar.gz
+
+修改mysql_config文件
+
+修改配置中的 libs="$libs -l"    改为    libs="$libs -lmysqlclient"
+
+
+
+7)手动安装DBD:mysql
+
+  wget https://cpan.metacpan.org/authors/id/D/DV/DVEEDEN/DBD-mysql-4.050.tar.gz
+
+  cd DBD-mysql-4.050
+
+  perl Makefile.PL --mysql_config=/opt/ora2pg/mysqlclient/bin/mysql_config --testpassword=***
+  make
+  make install
+
+  
+
+     遇到的问题
+
+    1.Checking if libs are available for compiling... Can't link/include C library '', aborting.
+
+     参考https://stackoverflow.com/questions/43622324/error-installing-dbdmysql-on-osx-10-11-cant-link-include-c-library-abor
+
+    2./usr/bin/perl: symbol lookup error: /usr/local/lib64/perl5/auto/DBD/mysql/mysql.so: undefined symbol: mysql_init
+
+     解决方案：在mysql_config文件增加
+
+libs="$libs -L//bin/openssl/lib "
+libs="$libs -lmysqlclient "
+
+   1.2 Download & Install ora2pg
+
+      Ora2Pg can be installed with the following commands:
+
+tar xjf https://github.com/darold/ora2pg/archive/refs/tags/v22.1.tar.gz
+cd ora2pg-22.1
+perl Makefile.PL
+make && make install
+
+   
+
+  2.迁移表和数据
+
+   ora2pg安装完成后会生成目录   /etc/ora2pg   
+
+   通过拷贝目录下ora2pg.conf.dist生成自己需要的conf文件
+
+   修改文件中的配置为自己mysql对应配置
+
+    # Set Oracle database connection (datasource, user, password)
+ORACLE_DSN dbi:mysql:host=*****;database=***;port=3306
+ORACLE_USER ***
+ORACLE_PWD ***
+
+   2.1 导出表结构
+
+    ora2pg -c /etc/ora2pg/mysql.conf  -t TABLE  --mysql -o prod_table.sql
+
+   
+
+   2.2导出insert语句
+
+   ora2pg -c /etc/ora2pg/mysql.conf -t INSERT -o prod_data.sql --mysql
+
+
+
+   2.2.1 export data to postgres DB directly
+
+   yum install perl-DBD-Pg
+
+   修改文件中的配置为自己postgres DB对应配置
+
+   
+
+# use og psql or any other PostgreSQL client.
+PG_DSN          dbi:Pg:dbname=wos;host=***;port=5432
+PG_USER         ***
+PG_PWD          ***
+   ora2pg -c mysql2pg.conf -t INSERT --mysql
+
+
+
+2.2.2 import data in PG server directly
+
+    – psql -U root -d dcaas -a -f prod_table.sql
+
+    - psql -U root -d dcaas -a -f prod_data.sql
+
+
+
+
+
+3.mysql和postgresql之间数据类型映射
+
+https://dev.mysql.com/doc/workbench/en/wb-migration-database-postgresql-typemapping.html
+
+
+
+
+
+4.迁移注意事项
+
+1）jpa中int(1)和boolean转换
+
+@Type(type = "org.hibernate.type.NumericBooleanType")
+private Boolean checkPeakTime;
+
+
+2)对于postgresql中的保留字不能用作column和table name，而对于不属于postgresql的保留字，但是属于SQL保留字的如果用作column和table name，默认情况下会自动加上双引号。保留字请参考https://www.postgresql.org/docs/13/sql-keywords-appendix.html
+
+3)其他mysql和postgresql之间语法差异请参考  https://www.endpointdev.com/blog/2014/11/mysql-to-postgresql-migration-tips/
+
+4)oracle to postgresql注意事项 https://severalnines.com/database-blog/migrating-oracle-postgresql-what-you-should-know
